@@ -1,5 +1,6 @@
 const { pool } = require("../database/connection")
 const bcrypt = require("bcryptjs")
+const { buildUpdateQuery } = require("../utils/db")
 
 class User {
   static async create({ name, email, phone, password }) {
@@ -41,30 +42,25 @@ class User {
     return result.rows
   }
 
+  static async countAll() {
+    const result = await pool.query("SELECT COUNT(*) FROM users")
+    return parseInt(result.rows[0].count, 10)
+  }
+
   static async update(id, updates) {
-    const fields = []
-    const values = []
-    let paramCount = 1
+    const { setClause, values, nextParam } = buildUpdateQuery(updates)
 
-    Object.keys(updates).forEach((key) => {
-      if (updates[key] !== undefined) {
-        fields.push(`${key} = $${paramCount}`)
-        values.push(updates[key])
-        paramCount++
-      }
-    })
-
-    if (fields.length === 0) {
+    if (!setClause) {
       throw new Error("No fields to update")
     }
 
-    fields.push(`updated_at = CURRENT_TIMESTAMP`)
-    values.push(id)
+    const finalSetClause = `${setClause}, updated_at = CURRENT_TIMESTAMP`
+    const finalValues = [...values, id]
 
     const result = await pool.query(
-      `UPDATE users SET ${fields.join(", ")} WHERE id = $${paramCount} 
+      `UPDATE users SET ${finalSetClause} WHERE id = $${nextParam} 
        RETURNING id, name, email, phone, role, updated_at`,
-      values,
+      finalValues,
     )
 
     return result.rows[0]

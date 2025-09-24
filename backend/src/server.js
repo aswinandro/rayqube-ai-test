@@ -8,7 +8,7 @@ require("dotenv").config()
 
 const swaggerSetup = require("./config/swagger")
 const errorHandler = require("./middleware/errorHandler")
-const { connectDatabase } = require("./database/connection")
+const { connectDatabase, pool } = require("./database/connection")
 
 // Import routes
 const authRoutes = require("./routes/auth")
@@ -80,7 +80,6 @@ const startServer = async () => {
   try {
     // Connect to database
     await connectDatabase()
-    console.log("Database connected successfully")
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`)
@@ -93,5 +92,16 @@ const startServer = async () => {
 }
 
 startServer()
+
+const gracefulShutdown = () => {
+  console.log("\nShutting down gracefully...")
+  pool.end(() => {
+    console.log("Database pool has been closed.")
+    process.exit(0)
+  })
+}
+
+process.on("SIGINT", gracefulShutdown)
+process.on("SIGTERM", gracefulShutdown)
 
 module.exports = app

@@ -1,4 +1,5 @@
 const { pool } = require("../database/connection")
+const { buildUpdateQuery } = require("../utils/db")
 
 class Upload {
   static async create({
@@ -52,6 +53,11 @@ class Upload {
     return result.rows
   }
 
+  static async countByUserId(userId) {
+    const result = await pool.query("SELECT COUNT(*) FROM uploads WHERE user_id = $1", [userId])
+    return parseInt(result.rows[0].count, 10)
+  }
+
   static async findAll(limit = 50, offset = 0) {
     const result = await pool.query(
       `SELECT u.*, usr.name as user_name, usr.email as user_email
@@ -65,31 +71,19 @@ class Upload {
   }
 
   static async update(id, updates) {
-    const fields = []
-    const values = []
-    let paramCount = 1
+    const { setClause, values, nextParam } = buildUpdateQuery(updates)
 
-    Object.keys(updates).forEach((key) => {
-      if (updates[key] !== undefined) {
-        if (key === "metadata") {
-          fields.push(`${key} = $${paramCount}`)
-          values.push(JSON.stringify(updates[key]))
-        } else {
-          fields.push(`${key} = $${paramCount}`)
-          values.push(updates[key])
-        }
-        paramCount++
-      }
-    })
-
-    if (fields.length === 0) {
+    if (!setClause) {
       throw new Error("No fields to update")
     }
 
-    fields.push(`updated_at = CURRENT_TIMESTAMP`)
-    values.push(id)
+    const finalSetClause = `${setClause}, updated_at = CURRENT_TIMESTAMP`
+    const finalValues = [...values, id]
 
-    const result = await pool.query(`UPDATE uploads SET ${fields.join(", ")} WHERE id = $${paramCount} RETURNING *`, values)
+    const result = await pool.query(
+      `UPDATE uploads SET ${finalSetClause} WHERE id = $${nextParam} RETURNING *`,
+      finalValues,
+    )
 
     return result.rows[0]
   }
