@@ -1,4 +1,4 @@
-const { query } = require("../connection")
+const { pool } = require("../connection")
 
 const createSessionsTable = async () => {
   const createTableQuery = `
@@ -21,8 +21,8 @@ const createSessionsTable = async () => {
   `
 
   try {
-    await query(createTableQuery)
-    await query(createIndexQuery)
+    await pool.query(createTableQuery)
+    await pool.query(createIndexQuery)
     console.log("Sessions table created successfully")
   } catch (error) {
     console.error("Error creating sessions table:", error)

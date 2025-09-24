@@ -1,5 +1,6 @@
 const QRCode = require("qrcode")
-const { s3 } = require("../config/aws")
+const { s3Client } = require("../config/aws")
+const { PutObjectCommand } = require("@aws-sdk/client-s3")
 const { v4: uuidv4 } = require("uuid")
 
 const generateQRCode = async (data, uploadId) => {
@@ -18,18 +19,18 @@ const generateQRCode = async (data, uploadId) => {
 
     // Upload QR code to S3
     const qrKey = `qr-codes/${uploadId}-${uuidv4()}.png`
-    const uploadParams = {
+    const putObjectCommand = new PutObjectCommand({
       Bucket: process.env.AWS_S3_BUCKET,
       Key: qrKey,
       Body: qrCodeBuffer,
       ContentType: "image/png",
-      ACL: "public-read",
-    }
+    })
 
-    const result = await s3.upload(uploadParams).promise()
+    await s3Client.send(putObjectCommand)
+    const qrCodeUrl = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${qrKey}`
 
     return {
-      qrCodeUrl: result.Location,
+      qrCodeUrl: qrCodeUrl,
       s3Key: qrKey,
     }
   } catch (error) {

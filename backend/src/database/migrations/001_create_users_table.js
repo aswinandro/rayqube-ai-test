@@ -1,4 +1,4 @@
-const { query } = require("../connection")
+const { pool } = require("../connection")
 
 const createUsersTable = async () => {
   const createTableQuery = `
@@ -22,8 +22,8 @@ const createUsersTable = async () => {
   `
 
   try {
-    await query(createTableQuery)
-    await query(createIndexQuery)
+    await pool.query(createTableQuery)
+    await pool.query(createIndexQuery)
     console.log("Users table created successfully")
   } catch (error) {
     console.error("Error creating users table:", error)
