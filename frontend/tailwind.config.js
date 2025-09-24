@@ -57,5 +57,10 @@ module.exports = {
       },
     },
   },
+// tailwind.config.js
+primary: {
+  DEFAULT: "var(--primary)",
+  foreground: "var(--primary-foreground)",
+},
   plugins: [require("@tailwindcss/forms"), require("tailwindcss-animate")],
 }
