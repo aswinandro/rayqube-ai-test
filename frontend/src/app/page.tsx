@@ -15,6 +15,7 @@ export default function HomePage() {
     name: "",
     email: "",
     phone: "",
+    password: "",
   })
   const [isRegistered, setIsRegistered] = useState(false)
   const { toast } = useToast()
@@ -168,6 +169,18 @@ export default function HomePage() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     placeholder="Enter your phone number"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    required
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    placeholder="Enter your password"
                   />
                 </div>
                 <Button type="submit" className="w-full bg-red-600 hover:bg-red-700">

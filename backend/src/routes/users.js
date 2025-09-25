@@ -59,7 +59,7 @@ router.get("/", protect, authorize("admin"), async (req, res, next) => {
     const limit = Number.parseInt(req.query.limit) || 50
     const offset = (page - 1) * limit
 
-    const users = await User.findAll(limit, offset)
+    const [users, total] = await Promise.all([User.findAll(limit, offset), User.countAll()])
 
     res.json({
       success: true,
@@ -67,7 +67,7 @@ router.get("/", protect, authorize("admin"), async (req, res, next) => {
       pagination: {
         page,
         limit,
-        total: users.length,
+        total,
       },
     })
   } catch (error) {

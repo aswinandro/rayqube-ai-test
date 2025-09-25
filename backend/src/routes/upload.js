@@ -1,5 +1,11 @@
 const express = require("express")
-const { s3 } = require("../config/aws")
+const {
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectsCommand,
+} = require("@aws-sdk/client-s3")
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner")
+const { s3Client } = require("../config/aws")
 const { upload, generateFileName } = require("../utils/fileUpload")
 const { generateQRCode } = require("../utils/qrCode")
 const Upload = require("../models/Upload")
@@ -62,23 +68,25 @@ router.post("/", protect, upload.single("file"), async (req, res, next) => {
     const s3Key = `uploads/${req.user.id}/${fileName}`
 
     // Upload file to S3
-    const uploadParams = {
+    const putObjectCommand = new PutObjectCommand({
       Bucket: process.env.AWS_S3_BUCKET,
       Key: s3Key,
       Body: file.buffer,
       ContentType: file.mimetype,
-      ACL: "public-read",
       Metadata: {
         userId: req.user.id,
         originalName: file.originalname,
       },
-    }
+    })
 
-    const s3Result = await s3.upload(uploadParams).promise()
+    await s3Client.send(putObjectCommand)
+
+    // Construct the public URL manually
+    const fileUrl = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`
 
     // Generate QR code with file URL
     const uploadId = uuidv4()
-    const qrData = s3Result.Location
+    const qrData = fileUrl
     const { qrCodeUrl } = await generateQRCode(qrData, uploadId)
 
     // Save upload record to database
@@ -88,7 +96,7 @@ router.post("/", protect, upload.single("file"), async (req, res, next) => {
       originalFilename: file.originalname,
       fileSize: file.size,
       mimeType: file.mimetype,
-      fileUrl: s3Result.Location,
+      fileUrl: fileUrl,
       qrCodeUrl: qrCodeUrl,
       s3Bucket: process.env.AWS_S3_BUCKET,
       s3Key: s3Key,
@@ -161,7 +169,10 @@ router.get("/my-uploads", protect, async (req, res, next) => {
     const limit = Number.parseInt(req.query.limit) || 20
     const offset = (page - 1) * limit
 
-    const uploads = await Upload.findByUserId(req.user.id, limit, offset)
+    const [uploads, total] = await Promise.all([
+      Upload.findByUserId(req.user.id, limit, offset),
+      Upload.countByUserId(req.user.id),
+    ])
 
     res.json({
       success: true,
@@ -169,7 +180,7 @@ router.get("/my-uploads", protect, async (req, res, next) => {
       pagination: {
         page,
         limit,
-        total: uploads.length,
+        total,
       },
     })
   } catch (error) {
@@ -299,11 +310,14 @@ router.get("/:id/download", protect, async (req, res, next) => {
     const expiresIn = Number.parseInt(req.query.expires) || 3600 // 1 hour default
 
     // Generate signed URL for download
-    const downloadUrl = s3.getSignedUrl("getObject", {
+    const getObjectCommand = new GetObjectCommand({
       Bucket: upload.s3_bucket,
       Key: upload.s3_key,
-      Expires: expiresIn,
       ResponseContentDisposition: `attachment; filename="${upload.original_filename}"`,
+    })
+
+    const downloadUrl = await getSignedUrl(s3Client, getObjectCommand, {
+      expiresIn: expiresIn,
     })
 
     res.json({
@@ -373,14 +387,14 @@ router.delete("/:id", protect, async (req, res, next) => {
       })
     }
 
-    await s3
-      .deleteObjects({
-        Bucket: upload.s3_bucket,
-        Delete: {
-          Objects: deleteParams,
-        },
-      })
-      .promise()
+    const deleteObjectsCommand = new DeleteObjectsCommand({
+      Bucket: upload.s3_bucket,
+      Delete: {
+        Objects: deleteParams,
+      },
+    })
+
+    await s3Client.send(deleteObjectsCommand)
 
     // Delete upload record from database
     await Upload.delete(req.params.id)

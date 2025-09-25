@@ -1,4 +1,4 @@
-const { query } = require("../connection")
+const { pool } = require("../connection")
 
 const createUploadsTable = async () => {
   const createTableQuery = `
@@ -27,8 +27,8 @@ const createUploadsTable = async () => {
   `
 
   try {
-    await query(createTableQuery)
-    await query(createIndexQuery)
+    await pool.query(createTableQuery)
+    await pool.query(createIndexQuery)
     console.log("Uploads table created successfully")
   } catch (error) {
     console.error("Error creating uploads table:", error)

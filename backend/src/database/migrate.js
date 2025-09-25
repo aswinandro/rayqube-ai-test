@@ -1,3 +1,4 @@
+require("dotenv").config()
 const { connectDatabase } = require("./connection")
 const { createUsersTable } = require("./migrations/001_create_users_table")
 const { createUploadsTable } = require("./migrations/002_create_uploads_table")
